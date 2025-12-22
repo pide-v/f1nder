@@ -1,0 +1,6 @@
+/dataset/*.json
+/dataset/original/*.json
+/dataset/__pycache__
+/index
+Ideas.txt
+token.txt

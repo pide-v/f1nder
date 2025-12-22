@@ -4,6 +4,7 @@ import os
 import shutil
 import pyterrier as pt
 
+
 #read document_collection
 with open("dataset/document_collection.json") as f:
 	data = json.load(f)

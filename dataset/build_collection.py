@@ -3,8 +3,8 @@ import os
 import re
 import unicodedata
 import string
-"""
-inputs = ["train.json", "validation.json", "test.json"]
+
+inputs = ["original/train.json", "original/validation.json", "original/test.json"]
 output = "document_collection.json"
 
 def load_list_or_empty(path):
@@ -53,9 +53,8 @@ with open(output, "w", encoding="utf-8") as f:
 
 print(f"Wrote {len(result)} records to {output}")
 print(json.dumps(result[:3], indent=2))
-"""
 
-input_file = "test.json"
+input_file = "original/test.json"
 output_file = "test_queries.json"
 
 # Load the data
