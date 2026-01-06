@@ -1,6 +1,21 @@
+### Old stuff ### --- IGNORE ---
+
+
 /dataset/*.json
 /dataset/original/*.json
 /dataset/__pycache__
 /index
 Ideas.txt
 token.txt
+
+
+
+### Current Gitignore ###
+
+/data
+/tests
+/results
+
+/.vscode
+/.ipynb_checkpoints
+/.DS_Store
