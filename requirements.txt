@@ -1,5 +1,2 @@
-### Requirements for F1nder
-
-json
-pandas
 pyterrier
+pandas
