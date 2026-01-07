@@ -2,7 +2,7 @@ import json
 import re
 import unicodedata
 import string
-import argparse
+from argparse import ArgumentParser
 
 
 def build_queries(input_file, output_file):
@@ -42,9 +42,9 @@ def build_queries(input_file, output_file):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--input_file", default=True)
-    ap.add_argument("--output_file", default=True)
+    ap = ArgumentParser()
+    ap.add_argument("--input_file")
+    ap.add_argument("--output_file")
     args = ap.parse_args()
 
     build_queries(args.input_file, args.output_file)

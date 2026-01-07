@@ -1,2 +1,3 @@
 pyterrier
+ir-measures
 pandas

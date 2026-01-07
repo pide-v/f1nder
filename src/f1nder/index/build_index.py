@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import shutil
 import pyterrier as pt
-import argparse
+from argparse import ArgumentParser
 
 
 def build_index(document_collection_file, index_path):
@@ -62,9 +62,9 @@ def build_index(document_collection_file, index_path):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--document_collection_file", default=True)
-    ap.add_argument("--index_path", default=True)
+    ap = ArgumentParser()
+    ap.add_argument("--document_collection_file")
+    ap.add_argument("--index_path")
     args = ap.parse_args()
 
     build_index(args.document_collection_file, args.index_path)

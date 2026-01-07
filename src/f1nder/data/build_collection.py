@@ -1,6 +1,6 @@
 import json
 import os
-import argparse
+from argparse import ArgumentParser
 
 
 def load_list_or_empty(path):
@@ -61,9 +61,9 @@ def build_collection(input, output):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--input_dir", default=True)
-    ap.add_argument("--output_file", default=True)
+    ap = ArgumentParser()
+    ap.add_argument("--input_dir")
+    ap.add_argument("--output_file")
     args = ap.parse_args()
 
     build_collection(args.input_dir, args.output_file)

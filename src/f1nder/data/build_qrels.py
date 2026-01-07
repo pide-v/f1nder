@@ -1,5 +1,5 @@
 import json
-import argparse
+from argparse import ArgumentParser
 
 
 def build_qrels(input_file, qrels_file, answers_file):
@@ -45,10 +45,10 @@ def build_qrels(input_file, qrels_file, answers_file):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--input_file", default=True)
-    ap.add_argument("--qrels_file", default=True)
-    ap.add_argument("--answers_file", default=True)
+    ap = ArgumentParser()
+    ap.add_argument("--input_file")
+    ap.add_argument("--qrels_file")
+    ap.add_argument("--answers_file")
     args = ap.parse_args()
 
     build_qrels(args.input_file, args.qrels_file, args.answers_file)
