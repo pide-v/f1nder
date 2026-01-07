@@ -4,7 +4,7 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 
 RUN=""  # <-- TYPE HERE
-OUTPUT=""  # <-- TYPE HERE
+OUTPUT=$RUN
 
 
 echo "..."
