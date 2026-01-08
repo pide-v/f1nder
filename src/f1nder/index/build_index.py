@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 
 def build_index(document_collection_file, index_path):
     #read document_collection
-    with open(document_collection_file) as f:
+    with open(document_collection_file, encoding="utf-8") as f:
         data = json.load(f)
 
     #Building a dataframe containing the whole collection
