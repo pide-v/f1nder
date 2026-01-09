@@ -5,7 +5,7 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 echo "Installing requirements..."
 
-pip install -U "pyterrier[java]"
-pip install -r $REPO_ROOT/requirements.txt
+python -m pip install -U "pyterrier[java]"
+python -m pip install -r $REPO_ROOT/requirements.txt
 
 echo "✅ Requirements installed!"

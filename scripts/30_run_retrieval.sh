@@ -3,5 +3,5 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 
 
-echo "..."
+echo "Running retrieval..."
 echo "✅ !"

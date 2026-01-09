@@ -4,10 +4,9 @@ import json
 import pandas as pd
 import pyterrier as pt
 from pyterrier.measures import *
-from dataset.utils import get_document_by_docno
 
 #load index
-index = pt.IndexFactory.of("./index")
+index = pt.IndexFactory.of("/mnt/c/Users/lore9/Desktop/f1nder/data/index/index")
 
 #load qrels
 with open("dataset/test_qrels.json") as f:
