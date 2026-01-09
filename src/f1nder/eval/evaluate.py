@@ -47,55 +47,8 @@ def evaluate_run(
     results = read_trec_run(run_path)
     results_perquery = pt.Evaluate(results, qrels, metrics=metrics, perquery=True)
     results_aggregate = pt.Evaluate(results, qrels, metrics=metrics, perquery=False)
-    # if "AP" in results_aggregate:
-    #     results_perquery["MAP"] = results_perquery["AP"]
-    #     del results_perquery["AP"]
 
     return results_perquery, results_aggregate
-
-
-# def evaluate_run(
-#     run_file: Path,
-#     qrels_file: Path,
-# ) -> Dict[str, float]:
-
-#     # if not run_file.exists():
-#     #     raise FileNotFoundError(f"Run file not found: {run_file}")
-
-#     # if not qrels_file.exists():
-#     #     raise FileNotFoundError(f"Qrels file not found: {qrels_file}")
-
-#     # Make sure PyTerrier is initialized (safe to call multiple times)
-#     if not pt.java.started():
-#         pt.java.init()
-
-#     measures = get_measures()
-
-#     # pt.evaluate returns a dict-like object
-#     results_perquery = pt.Evaluate(
-#         run=run_file,
-#         qrels=qrels_file,
-#         metrics=measures,
-#         perquery=True,
-#     )
-
-#     results_aggregate = pt.Evaluate(
-#         run=run_file,
-#         qrels=qrels_file,
-#         metrics=measures,
-#         perquery=False,
-#     )
-
-#     # Convert metric objects to readable strings
-#     metrics_dict_perquery = {}
-#     for m, v in results_perquery.items():
-#         metrics_dict_perquery[str(m)] = float(v)
-    
-#     metrics_dict_aggregate = {}
-#     for m, v in results_aggregate.items():
-#         metrics_dict_aggregate[str(m)] = float(v)
-
-#     return metrics_dict_perquery, metrics_dict_aggregate
 
 
 if __name__ == "__main__":
