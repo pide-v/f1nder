@@ -1,3 +1,4 @@
 pyterrier
 ir-measures
 pandas
+spacy
