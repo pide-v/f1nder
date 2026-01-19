@@ -1,0 +1,14 @@
+pyterrier
+ir-measures
+pandas
+
+spacy
+
+# for dense retrieval
+faiss-cpu
+sentence-transformers
+
+# for HuggingFace RAG generation
+transformers
+# torch
+# datasets
