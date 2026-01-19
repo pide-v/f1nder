@@ -5,7 +5,6 @@ from typing import Tuple
 from argparse import ArgumentParser
 
 import pandas as pd
-import json
 import pyterrier as pt
 
 from f1nder.eval.measures import get_measures
