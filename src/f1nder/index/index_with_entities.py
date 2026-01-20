@@ -30,8 +30,8 @@ def build_or_load_index_from_df(
         str(idx_dir),
         meta={"docno": 64},
         meta_reverse=["docno"],
-        text_attrs=["text", "entities"],
-        fields=["text", "entities"]
+        text_attrs=["text", "entities"], #quali campi leggere
+        fields=["text", "entities"] #crea due indici separati
     )
     indexref = indexer.index(docs_iter)
     return indexref
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     indexref = build_or_load_index_from_df(
         corpus_df=corpus_df,
         index_dir=args.index_path,
-        text_field="text",
+        text_field="context",
         entities_field="entities",
         docno_field="para_id",
         force_rebuild=args.force_rebuild
