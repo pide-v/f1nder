@@ -1,50 +1,48 @@
 # f1nder/utils/progress_bar.py
 from __future__ import annotations
 
-from typing import Iterable, Iterator, Optional, TypeVar
+from contextlib import contextmanager
+from typing import Iterator
+from pathlib import Path
 
-T = TypeVar("T")
 
-
-def progress(
-    iterable: Iterable[T],
+@contextmanager
+def progress_counter(
     *,
-    total: Optional[int] = None,
+    total: int,
     desc: str = "",
     enabled: bool = True,
-    leave: bool = False,
-) -> Iterator[T]:
+) -> Iterator[object]:
     """
-    Wraps an iterable with a progress bar (tqdm) when enabled.
+    A progress bar that you can update manually with pbar.update(n).
 
-    Why this exists:
-    - Central place to control progress-bar behaviour across scripts.
-    - Keeps your core code clean (no tqdm imports everywhere).
-    - If tqdm isn't installed, it gracefully falls back to a plain iterator.
+    Why:
+    - You want progress per document, but encoding happens in batches.
+    - This bar tracks *documents processed*, not *batches processed*.
 
-    tqdm usage: wrap any iterable as tqdm(iterable) to show a progress bar.  [oai_citation:1‡tqdm.github.io](https://tqdm.github.io/?utm_source=chatgpt.com)
+    If tqdm is missing or disabled, yields a dummy object with update().
     """
     if not enabled:
-        yield from iterable
+        class Dummy:
+            def update(self, n: int) -> None: ...
+            def close(self) -> None: ...
+        yield Dummy()
         return
 
     try:
         from tqdm import tqdm  # type: ignore
+        pbar = tqdm(total=total, desc=desc, dynamic_ncols=True)
+        try:
+            yield pbar
+        finally:
+            pbar.close()
     except Exception:
-        # Fallback: tqdm not installed -> just iterate
-        yield from iterable
-        return
+        class Dummy:
+            def update(self, n: int) -> None: ...
+            def close(self) -> None: ...
+        yield Dummy()
 
-    yield from tqdm(iterable, total=total, desc=desc, leave=leave, dynamic_ncols=True)
 
-
-def log(message: str, *, verbose: bool = True) -> None:
-    """
-    Logs a message to stdout if verbose is True.
-
-    Why this exists:
-    - Central place to control logging verbosity across scripts.
-    - Keeps your core code clean (no print statements everywhere).
-    """
+def log(msg: str, verbose: bool = True) -> None:
     if verbose:
-        print(message)
+        print(msg)

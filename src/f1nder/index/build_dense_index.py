@@ -22,7 +22,7 @@ except Exception as e:
     ) from e
 
 from f1nder.utils.io import read_json_or_jsonl
-from f1nder.utils.progress_bar import progress, log
+from f1nder.utils.progress_bar import progress_counter, log
 
 
 @dataclass(frozen=True)
@@ -72,6 +72,12 @@ def _batched(it: Iterable[str], batch_size: int) -> Iterator[list[str]]:
         yield batch
 
 
+def _to_dense_text(d: DocRecord, prepend_date: bool, date_prefix: str) -> str:
+    if prepend_date and d.publication_date:
+        return f"{date_prefix} {d.publication_date}\n{d.text}"
+    return d.text
+
+
 def build_dense_index(
     *,
     corpus_path: str | Path,
@@ -82,124 +88,71 @@ def build_dense_index(
     device: Optional[str] = None,
     max_length: int = 512,
     prepend_date: bool = True,
-    date_prefix: str = "DATE:",
+    date_prefix: str = "PUBBLICATION_DATE:",
     show_progress: bool = True,
     verbose: bool = True,
 ) -> dict:
-    """
-    Offline indexing: corpus -> embeddings -> FAISS index.
+    
+    print("🚀 Starting build_dense_index...")
 
-    Params:
-      - corpus_path: input corpus (.json or .jsonl) with fields para_id/context/publication_date
-      - index_out_path: output FAISS index (.faiss)
-      - meta_out_path: output JSONL mapping internal_id -> docno (+ optionally more)
-        (We store docno and optionally fields to reconstruct context later.)
-
-    Why IndexFlatIP + normalization:
-      - If embeddings are L2-normalized, inner product == cosine similarity.
-      - FAISS IndexFlatIP supports add/search with those vectors.  [oai_citation:3‡GitHub](https://github.com/facebookresearch/faiss/wiki/Faiss-indexes?utm_source=chatgpt.com)
-    """
     corpus_path = Path(corpus_path)
     index_out_path = Path(index_out_path)
     meta_out_path = Path(meta_out_path)
-
     index_out_path.parent.mkdir(parents=True, exist_ok=True)
     meta_out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # 1) Load model
+    print(f"🔄 Loading model {model_name} on device {device} with max_length {max_length}...")
+    log(f"[build_dense_index] loading model={model_name} device={device}")
     model = SentenceTransformer(model_name, device=device)
-    # max_length controls truncation; important to keep consistent between doc and query encoding
     model.max_seq_length = int(max_length)
 
-    # 1) Load docs
+    # 2) Load corpus -> DocRecord list
+    print(f"📚 Loading documents from corpus at {corpus_path}...")
     docs = list(_iter_docs_from_corpus(corpus_path))
     if not docs:
         raise ValueError(f"No documents found in {corpus_path}")
 
-    # 2) Build the exact string we embed (date injected at the beginning)
-    def to_dense_text(d: DocRecord) -> str:
-        if prepend_date and d.publication_date:
-            # putting date first makes it more likely to influence the pooled embedding
-            return f"{date_prefix} {d.publication_date}\n{d.text}"
-        return d.text
-
-    dense_texts = [to_dense_text(d) for d in docs]
-
-    # 3) Encode in batches -> float32 numpy (faiss expects float32)
-    # vectors: list[np.ndarray] = []
-    # for batch in _batched(dense_texts, batch_size):
-    #     emb = model.encode(
-    #         batch,
-    #         batch_size=len(batch),
-    #         convert_to_numpy=True,
-    #         normalize_embeddings=True,  # cosine-ready
-    #         show_progress_bar=False,
-    #     )
-    #     emb = emb.astype(np.float32, copy=False)
-    #     vectors.append(emb)
-
-    # X = np.vstack(vectors)
-    # if X.ndim != 2:
-    #     raise RuntimeError(f"Unexpected embedding shape: {X.shape}")
-    # n_docs, dim = X.shape
-
-    # 3) Encode in batches -> float32 numpy (faiss expects float32)
-    vectors: list[np.ndarray] = []
-
+    # 3) Prepare strings to embed (date injected at start)
+    print("📝 Preparing texts for embedding...")
+    dense_texts = [_to_dense_text(d, prepend_date=prepend_date, date_prefix=date_prefix) for d in docs]
     n_docs = len(dense_texts)
     n_batches = (n_docs + batch_size - 1) // batch_size
-    log(f"[build_dense_index] docs={n_docs}, batch_size={batch_size}, batches={n_batches}")
-    log(f"[build_dense_index] model={model_name}, device={device}, max_length={max_length}")
 
-    for batch in progress(
-        _batched(dense_texts, batch_size),
-        total=n_batches,
-        desc="Embedding docs",
-        enabled=show_progress,
-        leave=False,
-    ):
-        emb = model.encode(
-            batch,
-            batch_size=len(batch),
-            convert_to_numpy=True,
-            normalize_embeddings=True,  # cosine-ready
-            show_progress_bar=False,    # IMPORTANT: we handle progress ourselves
-        )
-        emb = emb.astype(np.float32, copy=False)
-        vectors.append(emb)
+    log(f"[build_dense_index] docs={n_docs} batch_size={batch_size} batches={n_batches} max_length={max_length}", verbose=verbose)
+
+    # 4) Encode in batches, but progress is counted in *documents*
+    print(f"🔄 Encoding {n_docs} documents in batches of {batch_size}...")
+    vectors: list[np.ndarray] = []
+    with progress_counter(total=n_docs, desc="Indexing documents", enabled=show_progress) as pbar:
+        for batch in _batched(dense_texts, batch_size):
+            emb = model.encode(
+                batch,
+                batch_size=len(batch),
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                show_progress_bar=False,  # we handle progress ourselves
+            ).astype(np.float32, copy=False)
+
+            vectors.append(emb)
+            # document-level progress:
+            pbar.update(len(batch))
 
     X = np.vstack(vectors)
-    if X.ndim != 2:
-        raise RuntimeError(f"Unexpected embedding shape: {X.shape}")
-    n_docs, dim = X.shape
+    n_docs2, dim = X.shape
+    if n_docs2 != n_docs:
+        raise RuntimeError(f"Embedding count mismatch: got {n_docs2}, expected {n_docs}")
 
-    # 4) Build index
+    # 5) Build & save FAISS index
+    print(f"💾 Building and saving FAISS index to {index_out_path}...")
     index = faiss.IndexFlatIP(dim)
     index.add(X)
-
-    # 5) Persist index + metadata mapping
     faiss.write_index(index, str(index_out_path))
 
-    # meta.jsonl: line i corresponds to internal id i in FAISS
-    # with meta_out_path.open("w", encoding="utf-8") as f:
-    #     for i, d in enumerate(docs):
-    #         rec = {
-    #             "internal_id": i,
-    #             "docno": d.docno,
-    #             "publication_date": d.publication_date,
-    #             # store original text so reranking/RAG later can reconstruct context quickly
-    #             "text": d.text,
-    #         }
-    #         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-
-    # meta.jsonl: line i corresponds to internal id i in FAISS
+    # 6) Save metadata mapping (internal_id -> docno + date + text)
+    print(f"💾 Saving metadata to {meta_out_path}...")
     with meta_out_path.open("w", encoding="utf-8") as f:
-        for i, d in progress(
-            enumerate(docs),
-            total=len(docs),
-            desc="Writing meta",
-            enabled=show_progress,
-            leave=False,
-        ):
+        for i, d in enumerate(docs):
             rec = {
                 "internal_id": i,
                 "docno": d.docno,
@@ -214,13 +167,15 @@ def build_dense_index(
         "index_out_path": str(index_out_path),
         "meta_out_path": str(meta_out_path),
         "model_name": model_name,
+        "batch_size": batch_size,
         "max_length": max_length,
+        "device": device,
+        "prepend_date": prepend_date,
+        "date_prefix": date_prefix,
     }
 
 
 if __name__ == "__main__":
-    # This script is designed to be imported and called via build_dense_index(...)
-    # Keep CLI minimal by design.
     import argparse
 
     p = argparse.ArgumentParser()
