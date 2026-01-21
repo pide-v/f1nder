@@ -15,6 +15,7 @@ token.txt
 /data
 /tests
 /artifacts/runs
+/results
 
 /.vscode
 /.ipynb_checkpoints

@@ -53,9 +53,12 @@ def qa(test_queries_path, test_queries_answers_path, output_path):
             )
 
         #Salvataggio su file della risposta per ciascun query_id
+        #Salviamo anche la question in modo da averla a portata di mano
+        #quando si fa evaluation con llm as a judge
         obj = {
             "query_id": t['query_id'],
-            "answer": answer
+            "answer": answer,
+            "question": question
         }
         with open(output_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
