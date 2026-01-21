@@ -5,12 +5,20 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 
+##################################
+# Ensure dirs, read/write JSON/JSONL 
+##################################
+
 def ensure_dir(path: str | Path) -> Path:
     """Create directory if missing."""
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
     return p
 
+
+##################################
+# Loading functions for JSON/JSONL corpora, queries, qrels and meta
+##################################
 
 def read_json_or_jsonl(path: str | Path) -> Any:
     """
@@ -213,6 +221,76 @@ def load_qrels_json(
     if out["label"].isna().any():
         raise ValueError("Some qrels labels could not be parsed as numeric.")
     return out
+
+
+def load_meta(meta_path: Path) -> list[dict]:
+    # meta.jsonl written by build_dense_index
+    rows = read_json_or_jsonl(meta_path)
+    # if someone saved meta as json list, it works too.
+    # we expect internal_id contiguous from 0..N-1
+    rows_sorted = sorted(rows, key=lambda r: int(r["internal_id"]))
+    return rows_sorted
+
+def load_meta_docno_to_text(
+    meta_path: Path,
+    *,
+    prepend_date: bool = True,
+    date_prefix: str = "DATE:",
+) -> dict[str, str]:
+    """
+    meta.jsonl comes from build_dense_index.py.
+    We construct the reranker 'context string' consistently:
+      DATE: <publication_date>\n<text>
+    """
+    rows = read_json_or_jsonl(meta_path)
+    out: dict[str, str] = {}
+    for r in rows:
+        docno = str(r["docno"])
+        text = str(r.get("text", "") or "")
+        pub_date = str(r.get("publication_date", "") or "")
+        if prepend_date and pub_date:
+            ctx = f"{date_prefix} {pub_date}\n{text}"
+        else:
+            ctx = text
+        out[docno] = ctx
+    if not out:
+        raise ValueError(f"No meta loaded from {meta_path}")
+    return out
+
+
+# def read_trec_run(run_path: Path) -> pd.DataFrame:
+#     """
+#     Expects lines:
+#       qid Q0 docno rank score system
+#     """
+#     rows = []
+#     with run_path.open("r", encoding="utf-8") as f:
+#         for line in f:
+#             line = line.strip()
+#             if not line:
+#                 continue
+#             parts = line.split()
+#             if len(parts) < 6:
+#                 raise ValueError(f"Bad TREC run line: {line}")
+#             qid, _q0, docno, rank, score, system = parts[:6]
+#             rows.append(
+#                 {
+#                     "qid": qid,
+#                     "docno": docno,
+#                     "rank": int(rank),
+#                     "score": float(score),
+#                     "system": system,
+#                 }
+#             )
+#     df = pd.DataFrame(rows)
+#     if df.empty:
+#         raise ValueError(f"Empty run file: {run_path}")
+#     return df
+
+
+##################################
+# Writing functions for TREC runs and metrics
+##################################
 
 
 def write_trec_run(results: pd.DataFrame, run_path: str | Path, run_name: str) -> None:

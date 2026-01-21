@@ -16,10 +16,12 @@ token.txt
 /tests
 /artifacts/runs
 /results
+/artifacts/exploration_analysis
+/artifacts/index_dense
 
 /.vscode
 /.ipynb_checkpoints
-/.DS_Store
+*/.DS_Store
 */__pycache__
 
 /venv
