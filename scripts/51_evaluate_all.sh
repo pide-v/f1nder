@@ -7,9 +7,9 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 # 1) qrels path
 QRELS_FILE="${1:-$REPO_ROOT/data/test_qrels.json}"
 # 2) runs directory
-RUNS_DIR="${2:-$REPO_ROOT/results/runs}"
+RUNS_DIR="${2:-$REPO_ROOT/artifacts/runs}"
 # 3) output metrics directory
-OUT_DIR="${3:-$REPO_ROOT/results/metrics}"
+OUT_DIR="${3:-$REPO_ROOT/artifacts/metrics}"
 
 mkdir -p "$OUT_DIR"
 

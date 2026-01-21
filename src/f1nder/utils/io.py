@@ -258,34 +258,34 @@ def load_meta_docno_to_text(
     return out
 
 
-def read_trec_run(run_path: Path) -> pd.DataFrame:
-    """
-    Expects lines:
-      qid Q0 docno rank score system
-    """
-    rows = []
-    with run_path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split()
-            if len(parts) < 6:
-                raise ValueError(f"Bad TREC run line: {line}")
-            qid, _q0, docno, rank, score, system = parts[:6]
-            rows.append(
-                {
-                    "qid": qid,
-                    "docno": docno,
-                    "rank": int(rank),
-                    "score": float(score),
-                    "system": system,
-                }
-            )
-    df = pd.DataFrame(rows)
-    if df.empty:
-        raise ValueError(f"Empty run file: {run_path}")
-    return df
+# def read_trec_run(run_path: Path) -> pd.DataFrame:
+#     """
+#     Expects lines:
+#       qid Q0 docno rank score system
+#     """
+#     rows = []
+#     with run_path.open("r", encoding="utf-8") as f:
+#         for line in f:
+#             line = line.strip()
+#             if not line:
+#                 continue
+#             parts = line.split()
+#             if len(parts) < 6:
+#                 raise ValueError(f"Bad TREC run line: {line}")
+#             qid, _q0, docno, rank, score, system = parts[:6]
+#             rows.append(
+#                 {
+#                     "qid": qid,
+#                     "docno": docno,
+#                     "rank": int(rank),
+#                     "score": float(score),
+#                     "system": system,
+#                 }
+#             )
+#     df = pd.DataFrame(rows)
+#     if df.empty:
+#         raise ValueError(f"Empty run file: {run_path}")
+#     return df
 
 
 ##################################

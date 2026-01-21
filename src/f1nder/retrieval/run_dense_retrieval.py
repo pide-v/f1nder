@@ -21,7 +21,8 @@ except Exception as e:
         "Missing dependency 'sentence-transformers'. Install sentence-transformers."
     ) from e
 
-from f1nder.utils.io import load_meta, load_queries_json
+from f1nder.utils.io import load_meta, load_queries_json, write_trec_run
+from f1nder.utils.progress_bar import progress_counter
 
 
 # def _read_json_or_jsonl(path: Path) -> list[dict]:
@@ -102,6 +103,98 @@ from f1nder.utils.io import load_meta, load_queries_json
 #             f.write(f"{row.qid} Q0 {row.docno} {row.rank} {row.score} {system_name}\n")
 
 
+# def run_dense_retrieval(
+#     *,
+#     index_path: str | Path,
+#     meta_path: str | Path,
+#     queries_path: str | Path,
+#     run_out_path: str | Path,
+#     model_name: str = "BAAI/bge-base-en-v1.5",
+#     k: int = 100,
+#     device: Optional[str] = None,
+#     max_length: int = 512,
+#     # Optional evaluation hooks (if you want to plug your repo eval later)
+#     qrels_path: Optional[str | Path] = None,
+# ) -> dict:
+#     """
+#     Online retrieval: query embeddings -> FAISS search -> TREC run.
+
+#     All required paths are explicit args, as requested:
+#       - index_path: FAISS index produced offline
+#       - meta_path: meta.jsonl produced offline (internal_id -> docno)
+#       - queries_path: queries json/jsonl
+#       - run_out_path: where to write the trec run
+
+#     Why we keep meta_path:
+#       - FAISS returns internal ids; we need to map them back to docno used by qrels.  [oai_citation:4‡GitHub](https://github.com/facebookresearch/faiss/wiki/Faiss-indexes?utm_source=chatgpt.com)
+#     """
+#     index_path = Path(index_path)
+#     meta_path = Path(meta_path)
+#     queries_path = Path(queries_path)
+#     run_out_path = Path(run_out_path)
+
+#     index = faiss.read_index(str(index_path))
+#     meta = load_meta(meta_path)
+#     docno_by_internal = [m["docno"] for m in meta]
+
+#     queries = load_queries_json(queries_path=queries_path, qid_field="query_id", query_field="question")
+
+#     model = SentenceTransformer(model_name, device=device)
+#     model.max_seq_length = int(max_length)
+
+#     rows = []
+#     for qid, qtext in queries:
+#         qvec = model.encode(
+#             [qtext],
+#             convert_to_numpy=True,
+#             normalize_embeddings=True,
+#             show_progress_bar=False,
+#         ).astype(np.float32, copy=False)
+
+#         # FAISS returns (scores, internal_ids)
+#         scores, internal_ids = index.search(qvec, int(k))
+#         scores = scores[0]
+#         internal_ids = internal_ids[0]
+
+#         # Build run rows
+#         rank = 1
+#         for s, iid in zip(scores, internal_ids):
+#             if iid < 0:
+#                 continue  # faiss uses -1 for empty
+#             docno = docno_by_internal[int(iid)]
+#             rows.append(
+#                 {
+#                     "qid": qid,
+#                     "docno": docno,
+#                     "rank": rank,
+#                     "score": float(s),
+#                 }
+#             )
+#             rank += 1
+
+#     run_df = pd.DataFrame(rows)
+#     write_trec_run(run_df, run_out_path, system_name="dense")
+
+#     # Optional: you can plug your own evaluation here.
+#     # I keep the hook to respect your pipeline, but I don't assume your repo functions.
+#     info = {
+#         "n_queries": len(queries),
+#         "k": int(k),
+#         "run_out_path": str(run_out_path),
+#         "model_name": model_name,
+#         "max_length": max_length,
+#     }
+
+#     if qrels_path is not None:
+#         info["qrels_path"] = str(qrels_path)
+#         info["note"] = (
+#             "qrels_path provided, but evaluation is not executed in this standalone script. "
+#             "Use your repo's evaluate_run(...) on the generated run file."
+#         )
+
+#     return info
+
+
 def run_dense_retrieval(
     *,
     index_path: str | Path,
@@ -112,20 +205,13 @@ def run_dense_retrieval(
     k: int = 100,
     device: Optional[str] = None,
     max_length: int = 512,
-    # Optional evaluation hooks (if you want to plug your repo eval later)
+    query_batch_size: int = 64,
     qrels_path: Optional[str | Path] = None,
+    show_progress: bool = True,
+    progress_desc: str = "Retrieving queries",
 ) -> dict:
     """
     Online retrieval: query embeddings -> FAISS search -> TREC run.
-
-    All required paths are explicit args, as requested:
-      - index_path: FAISS index produced offline
-      - meta_path: meta.jsonl produced offline (internal_id -> docno)
-      - queries_path: queries json/jsonl
-      - run_out_path: where to write the trec run
-
-    Why we keep meta_path:
-      - FAISS returns internal ids; we need to map them back to docno used by qrels.  [oai_citation:4‡GitHub](https://github.com/facebookresearch/faiss/wiki/Faiss-indexes?utm_source=chatgpt.com)
     """
     index_path = Path(index_path)
     meta_path = Path(meta_path)
@@ -136,58 +222,88 @@ def run_dense_retrieval(
     meta = load_meta(meta_path)
     docno_by_internal = [m["docno"] for m in meta]
 
-    queries = load_queries_json(queries_path)
+    print(f"🔁 Loading queries from {queries_path}...")
+    # This returns a DataFrame
+    queries_df = load_queries_json(
+        queries_path=queries_path,
+        qid_field="query_id",
+        query_field="question",
+    )
 
+    # Normalize expected column names (do NOT change the return type)
+    # We only rename locally for clarity.
+    if "query_id" in queries_df.columns and "question" in queries_df.columns:
+        qdf = queries_df.rename(columns={"query_id": "qid", "question": "query"})
+    else:
+        # If your loader already returns qid/query columns, handle it.
+        qdf = queries_df.copy()
+        if "qid" not in qdf.columns or "query" not in qdf.columns:
+            raise KeyError(
+                "Queries DF must have columns ('query_id','question') or ('qid','query'). "
+                f"Found: {list(qdf.columns)}"
+            )
+
+    qdf["qid"] = qdf["qid"].astype(str)
+    qdf["query"] = qdf["query"].astype(str)
+
+    print(f"🔁 Loading model '{model_name}' on device '{device or 'default'}'...")
     model = SentenceTransformer(model_name, device=device)
     model.max_seq_length = int(max_length)
 
     rows = []
-    for qid, qtext in queries:
-        qvec = model.encode(
-            [qtext],
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        ).astype(np.float32, copy=False)
+    n_queries = len(qdf)
 
-        # FAISS returns (scores, internal_ids)
-        scores, internal_ids = index.search(qvec, int(k))
-        scores = scores[0]
-        internal_ids = internal_ids[0]
+    print(f"🚀 Encoding and searching {n_queries} queries in batches...")
+    # Batch queries for speed (but ranking is still per-query)
+    with progress_counter(total=n_queries, desc=progress_desc, enabled=show_progress) as pbar:
 
-        # Build run rows
-        rank = 1
-        for s, iid in zip(scores, internal_ids):
-            if iid < 0:
-                continue  # faiss uses -1 for empty
-            docno = docno_by_internal[int(iid)]
-            rows.append(
-                {
-                    "qid": qid,
-                    "docno": docno,
-                    "rank": rank,
-                    "score": float(s),
-                }
-            )
-            rank += 1
+        for start in range(0, n_queries, int(query_batch_size)):
+            batch_df = qdf.iloc[start : start + int(query_batch_size)]
+            qids = batch_df["qid"].tolist()
+            qtexts = batch_df["query"].tolist()
 
+            # Encode all queries in the batch in one go (huge speedup)
+            Q = model.encode(
+                qtexts,
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            ).astype(np.float32, copy=False)
+
+            # Search all queries at once: FAISS supports batch search
+            scores, internal_ids = index.search(Q, int(k))  # shapes: (B,k), (B,k)
+
+            for i, qid in enumerate(qids):
+                rank = 1
+                for s, iid in zip(scores[i], internal_ids[i]):
+                    if iid < 0:
+                        continue
+                    docno = docno_by_internal[int(iid)]
+                    rows.append(
+                        {"qid": qid, "docno": docno, "rank": rank, "score": float(s)}
+                    )
+                    rank += 1
+
+            # Progress “per query” (not per batch)
+            pbar.update(len(batch_df))
+
+    print(f"💾 Writing TREC run to {run_out_path}...")
     run_df = pd.DataFrame(rows)
-    _write_trec_run(run_df, run_out_path, system_name="dense")
+    write_trec_run(results=run_df, run_path=run_out_path, run_name="dense")
 
-    # Optional: you can plug your own evaluation here.
-    # I keep the hook to respect your pipeline, but I don't assume your repo functions.
     info = {
-        "n_queries": len(queries),
+        "n_queries": int(n_queries),
         "k": int(k),
         "run_out_path": str(run_out_path),
         "model_name": model_name,
-        "max_length": max_length,
+        "max_length": int(max_length),
+        "query_batch_size": int(query_batch_size),
     }
 
     if qrels_path is not None:
         info["qrels_path"] = str(qrels_path)
         info["note"] = (
-            "qrels_path provided, but evaluation is not executed in this standalone script. "
+            "qrels_path provided, but evaluation is not executed here. "
             "Use your repo's evaluate_run(...) on the generated run file."
         )
 
@@ -207,6 +323,8 @@ if __name__ == "__main__":
     p.add_argument("--device", default=None)
     p.add_argument("--max-length", type=int, default=512)
     p.add_argument("--qrels", default=None)
+    p.add_argument("--show-progress", type=bool, default=True)
+    p.add_argument("--progress-desc", type=str, default="Retrieving queries")
     args = p.parse_args()
 
     info = run_dense_retrieval(
@@ -219,5 +337,7 @@ if __name__ == "__main__":
         device=args.device,
         max_length=args.max_length,
         qrels_path=args.qrels,
+        show_progress=args.show_progress,
+        progress_desc=args.progress_desc,
     )
     print(json.dumps(info, indent=2, ensure_ascii=False))

@@ -1,5 +1,3 @@
-# src/f1nder/eval/evaluate.py
-
 from pathlib import Path
 from typing import Tuple
 from argparse import ArgumentParser
@@ -40,8 +38,8 @@ def evaluate_run(
     Ritorna: (perquery_df, aggregate_df)
     """
     print(f"🧐 Evaluating run: {run_path} against qrels with {len(qrels)} entries")
-    if not pt.started():
-        pt.init()
+    if not pt.java.started():
+        pt.java.init()
 
     results = read_trec_run(run_path)
     results_perquery = pt.Evaluate(results, qrels, metrics=metrics, perquery=True)
@@ -57,12 +55,19 @@ if __name__ == "__main__":
     ap.add_argument("--output_file")
     args = ap.parse_args()
 
-    metrics_perquery, metrics_aggregate = evaluate_run(args.run_file, args.qrels_file)
+    if isinstance(args.qrels_file, (str, Path)):
+        if not pt.java.started():
+            pt.java.init()
+        qrels = pt.io.read_qrels(str(args.qrels_file))
+    else:
+        qrels = args.qrels_file
+
+    metrics_perquery, metrics_aggregate = evaluate_run(args.run_file, qrels)
 
     perquery_output_file = Path(args.output_file).parent / f"perquery_{Path(args.output_file).name}"
     save_metrics(metrics_perquery, perquery_output_file)
-    print(f"Saved per-query metrics to {perquery_output_file}")
+    print(f"💾 Saved per-query metrics to {perquery_output_file}")
 
     aggregate_output_file = Path(args.output_file).parent / f"aggregate_{Path(args.output_file).name}"
     save_metrics(metrics_aggregate, aggregate_output_file)
-    print(f"Saved aggregate metrics to {aggregate_output_file}")
+    print(f"💾 Saved aggregate metrics to {aggregate_output_file}")

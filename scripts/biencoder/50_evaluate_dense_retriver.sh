@@ -1,16 +1,15 @@
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.."
 export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 
-echo "INSERIRE IL CODICE DEL RUN DA VALUTARE DIRETTAMENTE NELLO SCRIPT..."
-RUN=""  # <-- TYPE HERE
+RUN="run_dense.txt"
 OUTPUT=$RUN
 
 
 echo "Evaluating run: $RUN..."
-QRELS_FILE=$REPO_ROOT/data/test_qurels.json
-RUN_FILE="$REPO_ROOT/results/runs/$RUN"
-OUT_FILE="$REPO_ROOT/results/metrics/$OUTPUT"
+QRELS_FILE=$REPO_ROOT/data/test_qrels.json
+RUN_FILE="$REPO_ROOT/artifacts/runs/$RUN"
+OUT_FILE="$REPO_ROOT/artifacts/metrics/$OUTPUT"
 
 
 if [[ ! -f "$QRELS_FILE" ]]; then
@@ -19,14 +18,14 @@ if [[ ! -f "$QRELS_FILE" ]]; then
 fi
 
 if [[ ! -f "$RUN_FILE" ]]; then
-  echo "❌ Run file not found: $RUN_DIR" >&2
+  echo "❌ Run file not found: $RUN_FILE" >&2
   exit 2
 fi
 
 
 python -m f1nder.eval.evaluate \
-    --qrels_file $ \
-    --run_file $RUN_FILE \
-    --output_file $OUTPUT_FILE
+    --qrels_file "$QRELS_FILE" \
+    --run_file "$RUN_FILE" \
+    --output_file "$OUT_FILE"
 
-echo "✅ !"
+echo "✅ Evaluation completed. Results saved to $OUT_FILE"

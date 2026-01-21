@@ -1,22 +1,21 @@
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.."
 export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 echo "Running Dense Retriever..."
 
-INDEX_PATH="${1:?Provide INDEX_PATH (.faiss)}"
-META_PATH="${2:?Provide META_PATH (.jsonl)}"
-QUERIES_PATH="${3:?Provide QUERIES_PATH (.json/.jsonl)}"
-RUN_OUT="${4:?Provide RUN_OUT (trec run file)}"
+RUN_OUT="$REPO_ROOT/artifacts/runs/dense.txt"
 
-MODEL_NAME="${MODEL_NAME:-BAAI/bge-base-en-v1.5}"
-DEVICE="${DEVICE:-cpu}"
-K="${K:-100}"
+# MODEL_NAME="${MODEL_NAME:-BAAI/bge-base-en-v1.5}"
+MODEL_NAME="${MODEL_NAME:-BAAI/bge-small-en-v1.5}"
+DEVICE="${DEVICE:-mps}" # mps is the device backend Metal (Apple GPU) supportato da PyTorch
+K="${K:-1000}"
 MAX_LEN="${MAX_LEN:-512}"
 
-python scripts/run_dense_retrieval.py \
-  --index "$INDEX_PATH" \
-  --meta "$META_PATH" \
-  --queries "$QUERIES_PATH" \
+python "$REPO_ROOT/src/f1nder/retrieval/run_dense_retrieval.py" \
+  --index "$REPO_ROOT/artifacts/index_dense/dense_index.faiss" \
+  --meta "$REPO_ROOT/artifacts/index_dense/meta.jsonl" \
+  --queries "$REPO_ROOT/data/test_queries.json" \
   --run-out "$RUN_OUT" \
   --model "$MODEL_NAME" \
   --device "$DEVICE" \

@@ -1,5 +1,5 @@
 echo "Building Dense Index..."
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/"
 export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 CORPUS_PATH="$REPO_ROOT/data/document_collection.json"
