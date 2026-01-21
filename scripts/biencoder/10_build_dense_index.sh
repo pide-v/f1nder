@@ -1,13 +1,13 @@
 echo "Building Dense Index..."
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.."
 export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 CORPUS_PATH="$REPO_ROOT/data/document_collection.json"
-INDEX_OUT="$REPO_ROOT/artifacts/index_dense/dense_index.faiss"
-META_OUT="$REPO_ROOT/artifacts/index_dense/meta.jsonl"
+INDEX_OUT="$REPO_ROOT/artifacts/index_dense_BAAI_bge-base-en-v1.5/dense_index.faiss"
+META_OUT="$REPO_ROOT/artifacts/index_dense_BAAI_bge-base-en-v1.5/meta.jsonl"
 
 # MODEL_NAME="${MODEL_NAME:-BAAI/bge-base-en-v1.5}"
-MODEL_NAME="${MODEL_NAME:-BAAI/bge-small-en-v1.5}"
+MODEL_NAME="${MODEL_NAME:-BAAI/bge-base-en-v1.5}"
 DEVICE="${DEVICE:-mps}" # mps is the device backend Metal (Apple GPU) supportato da PyTorch
 BATCH_SIZE="${BATCH_SIZE:-32}"
 MAX_LEN="${MAX_LEN:-512}"

@@ -231,6 +231,7 @@ def load_meta(meta_path: Path) -> list[dict]:
     rows_sorted = sorted(rows, key=lambda r: int(r["internal_id"]))
     return rows_sorted
 
+
 def load_meta_docno_to_text(
     meta_path: Path,
     *,
@@ -256,6 +257,25 @@ def load_meta_docno_to_text(
     if not out:
         raise ValueError(f"No meta loaded from {meta_path}")
     return out
+
+
+def read_trec_run(run_path: str | Path) -> pd.DataFrame:
+    """
+    Legge una run in formato TREC:
+      qid Q0 docno rank score run_name
+    e restituisce un DataFrame con colonne compatibili con pt.Evaluate:
+      qid, docno, rank, score
+    """
+    run_path = Path(run_path)
+    df = pd.read_csv(
+        run_path,
+        sep=r"\s+",
+        header=None,
+        names=["qid", "Q0", "docno", "rank", "score", "run_name"],
+        dtype={"qid": str, "Q0": str, "docno": str, "rank": int, "score": float, "run_name": str},
+        engine="python",
+    )
+    return df[["qid", "docno", "rank", "score"]]
 
 
 # def read_trec_run(run_path: Path) -> pd.DataFrame:
