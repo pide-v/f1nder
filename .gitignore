@@ -15,6 +15,7 @@ token.txt
 /data
 /tests
 /artifacts/runs
+/results
 /artifacts/exploration_analysis
 /artifacts/index_dense
 
