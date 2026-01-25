@@ -37,3 +37,26 @@ def build_or_load_index_from_df(
     )
     indexref = indexer.index(docs_iter)
     return indexref
+
+
+if __name__ == "__main__":
+    import argparse
+    from f1nder.utils.io import load_corpus_json
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--document_collection_file", type=str, required=True, help="Path to the document collection JSONL file.")
+    parser.add_argument("--index_path", type=str, required=True, help="Path to save the built index.")
+    parser.add_argument("--text_field", type=str, default="text", help="Field name for document text.")
+    parser.add_argument("--docno_field", type=str, default="docno", help="Field name for document identifier.")
+    parser.add_argument("--force_rebuild", type=bool, default=False, help="Force rebuilding the index even if it exists.")
+    args = parser.parse_args()
+
+    corpus_df = load_corpus_json(args.document_collection_file, docno_field=args.docno_field, text_field=args.text_field)
+
+    build_or_load_index_from_df(
+        corpus_df=corpus_df,
+        index_dir=args.index_path,
+        text_field="text",
+        docno_field="docno",
+        force_rebuild=args.force_rebuild,
+    )

@@ -109,13 +109,15 @@ def run_experiments(
     index_dir: str,
     runs_dir: str,
     metrics_dir: str,
+    docno_field: str = "para_id",
+    text_field: str = "context",
 ):
     if not pt.java.started():
         pt.java.init()
 
-    corpus_df = load_corpus_json(corpus_path, docno_field="para_id", text_field="context")
+    corpus_df = load_corpus_json(corpus_path, docno_field=docno_field, text_field=text_field)
     queries_df = load_queries_json(queries_path, qid_field="query_id", query_field="question")
-    qrels_df = load_qrels_json(qrels_path, qid_field="query_id", docno_field="para_id", label_field="relevance")
+    qrels_df = load_qrels_json(qrels_path, qid_field="query_id", docno_field=docno_field, label_field="relevance")
 
     indexref = build_or_load_index_from_df(corpus_df, index_dir=index_dir)
 
@@ -138,6 +140,8 @@ if __name__ == "__main__":
     ap.add_argument("--index_dir", type=str)
     ap.add_argument("--runs_dir", type=str)
     ap.add_argument("--metrics_dir", type=str)
+    ap.add_argument("--docno_field", type=str, default="para_id")
+    ap.add_argument("--text_field", type=str, default="context")
     args = ap.parse_args()
 
     outputs = run_experiments(
@@ -147,4 +151,6 @@ if __name__ == "__main__":
         index_dir=args.index_dir,
         runs_dir=args.runs_dir,
         metrics_dir=args.metrics_dir,
+        docno_field=args.docno_field,
+        text_field=args.text_field
     )

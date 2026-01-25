@@ -3,9 +3,11 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 
 
-echo "Building Index..."
-INDEX_PATH="$REPO_ROOT/data/index/index"
-python -m f1nder.index.build_index \
-    --document_collection_file $REPO_ROOT/data/document_collection.json \
-    --index_path $INDEX_PATH
-echo "✅ Index builted!"
+echo "🚀 Building Index..."
+python "$REPO_ROOT/src/f1nder/index/index.py" \
+    --document_collection_file $REPO_ROOT/data/document_collection_preprocessed_light.json \
+    --index_path "$REPO_ROOT/data/index/index_preprocessed_light" \
+    --text_field "preprocessed" \
+    --docno_field "para_id" \
+    --force_rebuild false
+echo "✅ Index built!"

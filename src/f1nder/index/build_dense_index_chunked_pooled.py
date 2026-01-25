@@ -73,6 +73,12 @@ def _batched(it: Iterable[str], batch_size: int) -> Iterator[list[str]]:
         yield batch
 
 
+# def _to_dense_text(d: DocRecord, prepend_date: bool, date_prefix: str = "PUBBLICATION_DATE:") -> str:
+#     if prepend_date and d.publication_date:
+#         return f"{date_prefix} {d.publication_date} TEXT:{d.text}"
+#     return d.text
+
+
 def build_dense_index(
     *,
     corpus_path: str | Path,
@@ -82,6 +88,9 @@ def build_dense_index(
     batch_size: int = 64,
     device: Optional[str] = None,
     max_length: int = 512,
+    chunk_tokens: int = 384,
+    overlap_tokens: int = 64,
+    min_last_chunk_tokens: int = 100,
     prepend_date: bool = True,
     show_progress: bool = True,
     verbose: bool = True,
@@ -107,36 +116,60 @@ def build_dense_index(
     if not docs:
         raise ValueError(f"No documents found in {corpus_path}")
 
-    # 3) Prepare strings to embed (1 per doc, optionally date-prepended)
+    # 3) Prepare strings to embed (date injected at start)
     print("📝 Preparing texts for embedding...")
-    dense_texts: list[str] = []
-    meta: list[dict] = []
+    # dense_texts = [_to_dense_text(d, prepend_date=prepend_date, date_prefix=date_prefix) for d in docs]
+    chunk_texts: list[str] = []
+    chunk_meta: list[dict] = []
 
-    for i, d in enumerate(docs):
-        if prepend_date and d.publication_date:
-            text = f"PUBBLICATION_DATE: {d.publication_date} TEXT:{d.text}"
-        else:
-            text = d.text
+    internal_id = 0
+    tokenizer = model.tokenizer
+    tokenizer.model_max_length = float("inf")  # disable tokenizer-level truncation
 
-        dense_texts.append(text)
-        meta.append(
-            {
-                "internal_id": i,
-                "docno": d.docno,  # para_id per evaluation
-                "publication_date": d.publication_date,
-                "text": d.text,    # testo originale (utile per RAG/rerank)
-            }
+    for d in docs:
+        # dense_text = _to_dense_text(d, prepend_date=prepend_date, date_prefix=date_prefix)
+        dense_text = d.text  # chunking will handle date prepending if needed
+
+        chunks = chunk_text_sliding_window(
+            dense_text,
+            tokenizer=tokenizer,
+            chunk_tokens=int(chunk_tokens),
+            overlap_tokens=int(overlap_tokens),
+            min_last_chunk_tokens=int(min_last_chunk_tokens),
+            date_tokens_budget=16 if prepend_date and d.publication_date else 0,
         )
 
-    n_docs = len(dense_texts)
+        for ch in chunks:
+            if prepend_date and d.publication_date:
+                ch_text = f"PUBBLICATION_DATE: {d.publication_date} TEXT:{ch.text}"
+            else:
+                ch_text = ch.text
+
+            chunk_texts.append(ch_text)
+            chunk_meta.append(
+                {
+                    "internal_id": internal_id,
+                    "docno": d.docno,  # IMPORTANT: resta para_id per la evaluation
+                    "chunk_id": int(ch.chunk_id),
+                    "start_token": int(ch.start_token),
+                    "end_token": int(ch.end_token),
+                    "n_tokens": int(ch.n_tokens),
+                    "publication_date": d.publication_date,
+                    "text": ch.text,   # utile per reranking/RAG
+                }
+            )
+            internal_id += 1
+    
+    n_docs = len(chunk_texts)
     n_batches = (n_docs + batch_size - 1) // batch_size
+
     log(f"[build_dense_index] docs={n_docs} batch_size={batch_size} batches={n_batches} max_length={max_length}", verbose=verbose)
 
     # 4) Encode in batches, but progress is counted in *documents*
     print(f"🔄 Encoding {n_docs} documents in batches of {batch_size}...")
     vectors: list[np.ndarray] = []
     with progress_counter(total=n_docs, desc="Indexing documents", enabled=show_progress) as pbar:
-        for batch in _batched(dense_texts, batch_size):
+        for batch in _batched(chunk_texts, batch_size):
             emb = model.encode(
                 batch,
                 batch_size=len(batch),
@@ -162,12 +195,25 @@ def build_dense_index(
 
     # 6) Save metadata mapping (internal_id -> docno + date + text)
     print(f"💾 Saving metadata to {meta_out_path}...")
+    # with meta_out_path.open("w", encoding="utf-8") as f:
+    #     for i, d in enumerate(docs):
+    #         rec = {
+    #             "internal_id": i,
+    #             "docno": d.docno,
+    #             "publication_date": d.publication_date,
+    #             "text": d.text,
+    #         }
+    #         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     with meta_out_path.open("w", encoding="utf-8") as f:
-        for rec in meta:
+        for rec in chunk_meta:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     return {
-        "n_docs": n_docs,
+        "n_chunks": int(n_docs),
+        "chunk_tokens": int(chunk_tokens),
+        "overlap_tokens": int(overlap_tokens),
+        "min_last_chunk_tokens": int(min_last_chunk_tokens),
+        #"n_docs": n_docs,
         "dim": dim,
         "index_out_path": str(index_out_path),
         "meta_out_path": str(meta_out_path),
@@ -190,6 +236,9 @@ if __name__ == "__main__":
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--device", default=None)
     p.add_argument("--max-length", type=int, default=512)
+    p.add_argument("--chunk-tokens", type=int, default=384)
+    p.add_argument("--overlap-tokens", type=int, default=64)
+    p.add_argument("--min-last-chunk-tokens", type=int, default=100)
     p.add_argument("--prepend-date", type=bool, default=True)
     p.add_argument("--show-progress", type=bool, default=True)
     p.add_argument("--verbose", type=bool, default=True)
@@ -204,6 +253,9 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         device=args.device,
         max_length=args.max_length,
+        chunk_tokens=args.chunk_tokens,
+        overlap_tokens=args.overlap_tokens,
+        min_last_chunk_tokens=args.min_last_chunk_tokens,
         prepend_date=args.prepend_date,
         show_progress=args.show_progress,
         verbose=args.verbose,

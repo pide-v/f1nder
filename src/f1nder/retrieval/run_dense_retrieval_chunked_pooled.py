@@ -44,6 +44,7 @@ def run_dense_retrieval(
     run_out_path: str | Path,
     model_name: str = "BAAI/bge-base-en-v1.5",
     k: int = 1000,
+    chunk_k: int = 5000,
     device: Optional[str] = None,
     max_length: int = 512,
     query_batch_size: int = 64,
@@ -51,6 +52,8 @@ def run_dense_retrieval(
     show_progress: bool = True,
     progress_desc: str = "Retrieving queries",
     query_prefix: Optional[str] = None,
+    pool_docno: bool = True,
+    pool_mode: str = "max",  # for now we implement only max
 ) -> dict:
     """
     Online retrieval: query embeddings -> FAISS search -> TREC run.
@@ -125,14 +128,37 @@ def run_dense_retrieval(
             scores, internal_ids = index.search(Q, int(k))  # shapes: (B,k), (B,k)
 
             for i, qid in enumerate(qids):
-                rank = 1
-                for s, iid in zip(scores[i], internal_ids[i]):
-                    if iid < 0:
-                        continue
-                    docno = docno_by_internal[int(iid)]
-                    rows.append({"qid": qid, "docno": docno, "rank": rank, "score": float(s)})
-                    rank += 1
-                    
+                if pool_docno:
+                    best_score_by_docno: dict[str, float] = {}
+
+                    for s, iid in zip(scores[i], internal_ids[i]):
+                        if iid < 0:
+                            continue
+                        docno = docno_by_internal[int(iid)]
+                        s = float(s)
+
+                        # max pooling (robust, standard for passage->doc aggregation)
+                        prev = best_score_by_docno.get(docno)
+                        if prev is None or s > prev:
+                            best_score_by_docno[docno] = s
+
+                    # Sort docnos by pooled score desc, keep top-k (same k as before)
+                    ranked = sorted(best_score_by_docno.items(), key=lambda x: x[1], reverse=True)[: int(k)]
+
+                    for rank, (docno, s) in enumerate(ranked, start=1):
+                        rows.append({"qid": qid, "docno": docno, "rank": rank, "score": float(s)})
+
+                else:
+                    # old behavior (may create duplicate docno per query)
+                    rank = 1
+                    for s, iid in zip(scores[i], internal_ids[i]):
+                        if iid < 0:
+                            continue
+                        docno = docno_by_internal[int(iid)]
+                        rows.append({"qid": qid, "docno": docno, "rank": rank, "score": float(s)})
+                        rank += 1
+
+
             # Progress “per query” (not per batch)
             pbar.update(len(batch_df))
 
@@ -169,12 +195,15 @@ if __name__ == "__main__":
     p.add_argument("--run-out", required=True)
     p.add_argument("--model", default="BAAI/bge-base-en-v1.5")
     p.add_argument("--k", type=int, default=1000)
+    p.add_argument("--chunk-k", type=int, default=5000)
     p.add_argument("--device", default=None)
     p.add_argument("--max-length", type=int, default=512)
     p.add_argument("--qrels", default=None)
     p.add_argument("--show-progress", type=bool, default=True)
     p.add_argument("--progress-desc", type=str, default="Retrieving queries")
     p.add_argument("--query-prefix", default=None)
+    p.add_argument("--pool-docno", type=bool, default=True)
+    p.add_argument("--pool-mode", type=str, default="max")
     args = p.parse_args()
 
     info = run_dense_retrieval(
@@ -184,11 +213,14 @@ if __name__ == "__main__":
         run_out_path=args.run_out,
         model_name=args.model,
         k=args.k,
+        chunk_k=args.chunk_k,
         device=args.device,
         max_length=args.max_length,
         qrels_path=args.qrels,
         show_progress=args.show_progress,
         progress_desc=args.progress_desc,
         query_prefix=_default_query_prefix_for_model(args.model),
+        pool_docno=True,
+        pool_mode="max",
     )
     print(json.dumps(info, indent=2, ensure_ascii=False))
