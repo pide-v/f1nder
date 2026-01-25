@@ -6,7 +6,7 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 echo "🚀 Building Dense Index with Chunked Pooling..."
 
-CORPUS_PATH="$REPO_ROOT/data/document_collection_preprocess_super_light.json"
+CORPUS_PATH="$REPO_ROOT/data/document_collection_preprocessed_super_light.json"
 INDEX_OUT="$REPO_ROOT/artifacts/index/index_dense_preprocess_super_light_BAAI_bge-large-en-v1.5/dense_index.faiss"
 META_OUT="$REPO_ROOT/artifacts/index/index_dense_preprocess_super_light_BAAI_bge-large-en-v1.5/meta.jsonl"
 
@@ -45,7 +45,7 @@ MAX_LEN="${MAX_LEN:-512}"
 python "$REPO_ROOT/src/f1nder/retrieval/run_dense_retrieval.py" \
   --index "$REPO_ROOT/artifacts/index/index_dense_preprocess_super_light_BAAI_bge-large-en-v1.5/dense_index.faiss" \
   --meta "$REPO_ROOT/artifacts/index/index_dense_preprocess_super_light_BAAI_bge-large-en-v1.5/meta.jsonl" \
-  --queries "$REPO_ROOT/data/test_queries_preprocess_super_light.json" \
+  --queries "$REPO_ROOT/data/test_queries_preprocessed_super_light.json" \
   --run-out "$RUN_OUT" \
   --model "$MODEL_NAME" \
   --device "$DEVICE" \
@@ -67,7 +67,7 @@ echo "🚀 Evaluating run: $RUN..."
 RUN="run_dense_preprocess_super_light_BAAI_bge-large-en-v1.5.txt"
 OUTPUT=$RUN
 
-QRELS_FILE=$REPO_ROOT/data/test_qrels_preprocess_super_light.json
+QRELS_FILE=$REPO_ROOT/data/test_qrels.json
 RUN_FILE="$REPO_ROOT/artifacts/runs/after_preprocess_super_light/$RUN"
 OUT_FILE="$REPO_ROOT/artifacts/metrics/after_preprocess_super_light/$OUTPUT"
 
