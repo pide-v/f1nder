@@ -114,6 +114,7 @@ def build_dense_index(
 
     for i, d in enumerate(docs):
         if prepend_date and d.publication_date:
+            # --- TODO: try to remove the string "PUBLICATION_DATE:" and "TEXT:" to see if it helps ---
             text = f"PUBBLICATION_DATE: {d.publication_date} TEXT:{d.text}"
         else:
             text = d.text
@@ -190,9 +191,9 @@ if __name__ == "__main__":
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--device", default=None)
     p.add_argument("--max-length", type=int, default=512)
-    p.add_argument("--prepend-date", type=bool, default=True)
-    p.add_argument("--show-progress", type=bool, default=True)
-    p.add_argument("--verbose", type=bool, default=True)
+    p.add_argument("--prepend-date", choices=["true", "false"], default="true")
+    p.add_argument("--show-progress", choices=["true", "false"], default="true")
+    p.add_argument("--verbose", choices=["true", "false"], default="true")
 
     args = p.parse_args()
 
@@ -204,8 +205,8 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         device=args.device,
         max_length=args.max_length,
-        prepend_date=args.prepend_date,
-        show_progress=args.show_progress,
-        verbose=args.verbose,
+        prepend_date=args.prepend_date.lower() == "true",
+        show_progress=args.show_progress.lower() == "true",
+        verbose=args.verbose.lower() == "true",
         )
     print(json.dumps(info, indent=2, ensure_ascii=False))

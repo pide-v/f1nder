@@ -91,6 +91,17 @@ def run_dense_retrieval(
     qdf["qid"] = qdf["qid"].astype(str)
     qdf["query"] = qdf["query"].astype(str)
 
+    # --- Apply query prefix ---
+    if query_prefix is None:
+        query_prefix = _default_query_prefix_for_model(model_name)
+
+    if query_prefix:
+        print(f"🧠 Using query prefix for retrieval: {query_prefix!r}")
+        qdf["query"] = qdf["query"].astype(str).map(lambda q: query_prefix + q)
+    else:
+        print("🧠 No query prefix applied.")
+    # -----------------------------------------
+
     print(f"🔁 Loading model '{model_name}' on device '{device or 'default'}'...")
     model = SentenceTransformer(model_name, device=device)
     model.max_seq_length = int(max_length)
@@ -106,15 +117,6 @@ def run_dense_retrieval(
             batch_df = qdf.iloc[start : start + int(query_batch_size)]
             qids = batch_df["qid"].tolist()
             qtexts = batch_df["query"].tolist()
-
-            if query_prefix is None:
-                query_prefix = _default_query_prefix_for_model(model_name)
-
-            if query_prefix:
-                qdf["query"] = query_prefix + qdf["query"]
-                print(f"🧠 Using query prefix for retrieval: {query_prefix!r}")
-            else:
-                print("🧠 No query prefix applied.")
 
             # Encode all queries in the batch in one go (huge speedup)
             Q = model.encode(
@@ -199,10 +201,10 @@ if __name__ == "__main__":
     p.add_argument("--device", default=None)
     p.add_argument("--max-length", type=int, default=512)
     p.add_argument("--qrels", default=None)
-    p.add_argument("--show-progress", type=bool, default=True)
+    p.add_argument("--show-progress", choices=["true", "false"], default="true")
     p.add_argument("--progress-desc", type=str, default="Retrieving queries")
     p.add_argument("--query-prefix", default=None)
-    p.add_argument("--pool-docno", type=bool, default=True)
+    p.add_argument("--pool-docno", choices=["true", "false"], default="true")
     p.add_argument("--pool-mode", type=str, default="max")
     args = p.parse_args()
 
@@ -217,10 +219,10 @@ if __name__ == "__main__":
         device=args.device,
         max_length=args.max_length,
         qrels_path=args.qrels,
-        show_progress=args.show_progress,
+        show_progress=args.show_progress.lower() == "true",
         progress_desc=args.progress_desc,
         query_prefix=_default_query_prefix_for_model(args.model),
-        pool_docno=True,
-        pool_mode="max",
+        pool_docno=args.pool_docno.lower() == "true",
+        pool_mode=args.pool_mode,
     )
     print(json.dumps(info, indent=2, ensure_ascii=False))

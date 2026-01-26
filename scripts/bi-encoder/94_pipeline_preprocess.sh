@@ -4,30 +4,30 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 
 
-echo "🚀 Building Dense Index with Chunked Pooling..."
+# echo "🚀 Building Dense Index with Chunked Pooling..."
 
-CORPUS_PATH="$REPO_ROOT/data/document_collection_preprocessed_super_light.json"
-INDEX_OUT="$REPO_ROOT/artifacts/index/index_dense_preprocess_super_light_BAAI_bge-large-en-v1.5/dense_index.faiss"
-META_OUT="$REPO_ROOT/artifacts/index/index_dense_preprocess_super_light_BAAI_bge-large-en-v1.5/meta.jsonl"
+# CORPUS_PATH="$REPO_ROOT/data/document_collection_preprocessed_super_light.json"
+# INDEX_OUT="$REPO_ROOT/artifacts/index/index_dense_preprocess_super_light_BAAI_bge-large-en-v1.5/dense_index.faiss"
+# META_OUT="$REPO_ROOT/artifacts/index/index_dense_preprocess_super_light_BAAI_bge-large-en-v1.5/meta.jsonl"
 
-MODEL_NAME="${MODEL_NAME:-BAAI/bge-large-en-v1.5}"
-DEVICE="${DEVICE:-mps}" # mps is the device backend Metal (Apple GPU) supportato da PyTorch
-BATCH_SIZE="${BATCH_SIZE:-32}"
-MAX_LEN="${MAX_LEN:-512}" # 512, 384, 256, 128
+# MODEL_NAME="${MODEL_NAME:-BAAI/bge-large-en-v1.5}"
+# DEVICE="${DEVICE:-mps}" # mps is the device backend Metal (Apple GPU) supportato da PyTorch
+# BATCH_SIZE="${BATCH_SIZE:-32}"
+# MAX_LEN="${MAX_LEN:-512}" # 512, 384, 256, 128
 
-python "$REPO_ROOT/src/f1nder/index/build_dense_index.py" \
-  --corpus "$CORPUS_PATH" \
-  --index-out "$INDEX_OUT" \
-  --meta-out "$META_OUT" \
-  --model "$MODEL_NAME" \
-  --batch-size "$BATCH_SIZE" \
-  --device "$DEVICE" \
-  --max-length "$MAX_LEN" \
-  --prepend-date true \
-  --show-progress true \
-  --verbose true
+# python "$REPO_ROOT/src/f1nder/index/build_dense_index.py" \
+#   --corpus "$CORPUS_PATH" \
+#   --index-out "$INDEX_OUT" \
+#   --meta-out "$META_OUT" \
+#   --model "$MODEL_NAME" \
+#   --batch-size "$BATCH_SIZE" \
+#   --device "$DEVICE" \
+#   --max-length "$MAX_LEN" \
+#   --prepend-date true \
+#   --show-progress true \
+#   --verbose true
 
-echo "✅ Dense Index built at $INDEX_OUT"
+# echo "✅ Dense Index built at $INDEX_OUT"
 
 
 
@@ -53,12 +53,6 @@ python "$REPO_ROOT/src/f1nder/retrieval/run_dense_retrieval.py" \
   --max-length "$MAX_LEN"
 
 echo "✅ Dense Retrieval run completed. Results saved to $RUN_OUT"
-
-
-
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.."
-export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
-
 
 
 

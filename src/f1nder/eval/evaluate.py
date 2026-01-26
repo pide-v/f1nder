@@ -65,13 +65,6 @@ if __name__ == "__main__":
     ap.add_argument("--output_file")
     args = ap.parse_args()
 
-    # if isinstance(args.qrels_file, (str, Path)):
-    #     if not pt.java.started():
-    #         pt.java.init()
-    #     qrels = pt.io.read_qrels(str(args.qrels_file))
-    # else:
-    #     qrels = args.qrels_file
-
     import json
 
     def load_qrels_any(path: str | Path) -> pd.DataFrame:
