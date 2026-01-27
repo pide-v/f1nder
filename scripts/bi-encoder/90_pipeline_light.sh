@@ -4,30 +4,30 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 
 
-# echo "🚀 Building Dense Index with Chunked Pooling..."
+echo "🚀 Building Dense Index with Chunked Pooling..."
 
-# CORPUS_PATH="$REPO_ROOT/data/document_collection.json"
-# INDEX_OUT="$REPO_ROOT/artifacts/index/index_dense_BAAI_bge-large-en-v1.5/dense_index.faiss"
-# META_OUT="$REPO_ROOT/artifacts/index/index_dense_BAAI_bge-large-en-v1.5/meta.jsonl"
+CORPUS_PATH="$REPO_ROOT/data/document_collection.json"
+INDEX_OUT="$REPO_ROOT/artifacts/index/index_dense_BAAI_bge3/dense_index.faiss"
+META_OUT="$REPO_ROOT/artifacts/index/index_dense_BAAI_bge3/meta.jsonl"
 
-# MODEL_NAME="${MODEL_NAME:-BAAI/bge-large-en-v1.5}"
-# DEVICE="${DEVICE:-mps}" # mps is the device backend Metal (Apple GPU) supportato da PyTorch
-# BATCH_SIZE="${BATCH_SIZE:-32}"
-# MAX_LEN="${MAX_LEN:-512}" # 512, 384, 256, 128
+MODEL_NAME="${MODEL_NAME:-BAAI/bge-m3}"
+DEVICE="${DEVICE:-mps}" # mps is the device backend Metal (Apple GPU) supportato da PyTorch
+BATCH_SIZE="${BATCH_SIZE:-32}"
+MAX_LEN="${MAX_LEN:-2048}" # 512, 384, 256, 128
 
-# python "$REPO_ROOT/src/f1nder/index/build_dense_index.py" \
-#   --corpus "$CORPUS_PATH" \
-#   --index-out "$INDEX_OUT" \
-#   --meta-out "$META_OUT" \
-#   --model "$MODEL_NAME" \
-#   --batch-size "$BATCH_SIZE" \
-#   --device "$DEVICE" \
-#   --max-length "$MAX_LEN" \
-#   --prepend-date true \
-#   --show-progress true \
-#   --verbose true
+python "$REPO_ROOT/src/f1nder/index/build_dense_index.py" \
+  --corpus "$CORPUS_PATH" \
+  --index-out "$INDEX_OUT" \
+  --meta-out "$META_OUT" \
+  --model "$MODEL_NAME" \
+  --batch-size "$BATCH_SIZE" \
+  --device "$DEVICE" \
+  --max-length "$MAX_LEN" \
+  --prepend-date true \
+  --show-progress true \
+  --verbose true
 
-# echo "✅ Dense Index built at $INDEX_OUT"
+echo "✅ Dense Index built at $INDEX_OUT"
 
 
 
@@ -35,33 +35,34 @@ export PYTHONPATH="${REPO_ROOT}/src:${PYTHONPATH:-}"
 
 echo "🚀 Running Dense Retriever..."
 
-RUN_OUT="$REPO_ROOT/artifacts/runs/before_preprocess/run_dense_chunked_pooled_v4_BAAI_bge-large-en-v1.5.txt"
+RUN_OUT="$REPO_ROOT/artifacts/runs/before_preprocess/run_dense_BAAI_bge3.txt"
 
 # MODEL_NAME="${MODEL_NAME:-BAAI/bge-small-en-v1.5}"
-MODEL_NAME="${MODEL_NAME:-BAAI/bge-large-en-v1.5}"
+MODEL_NAME="${MODEL_NAME:-BAAI/bge3}"
 DEVICE="${DEVICE:-mps}" # mps is the device backend Metal (Apple GPU) supportato da PyTorch
 K="${K:-1000}"
-MAX_LEN="${MAX_LEN:-512}"
+MAX_LEN="${MAX_LEN:-2048}" # 512, 384, 256, 128
 
-CHUNK_K="${CHUNK_K:-5000}"
-POOL_DOCNO="${POOL_DOCNO:-true}"
-POOL_MODE="${POOL_MODE:-max}"
+# CHUNK_K="${CHUNK_K:-5000}"
+# POOL_DOCNO="${POOL_DOCNO:-true}"
+# POOL_MODE="${POOL_MODE:-max}"
 
 
-python "$REPO_ROOT/src/f1nder/retrieval/run_dense_chunked_pooled_retrieval.py" \
-  --index "$REPO_ROOT/artifacts/index/index_dense_chunked_pooled_v4_BAAI_bge-large-en-v1.5/dense_index.faiss" \
-  --meta "$REPO_ROOT/artifacts/index/index_dense_chunked_pooled_v4_BAAI_bge-large-en-v1.5/meta.jsonl" \
+# python "$REPO_ROOT/src/f1nder/retrieval/run_dense_chunked_pooled_retrieval.py" \
+python "$REPO_ROOT/src/f1nder/retrieval/run_dense_retrieval.py" \
+  --index "$REPO_ROOT/artifacts/index/index_dense_BAAI_bge3/dense_index.faiss" \
+  --meta "$REPO_ROOT/artifacts/index/index_dense_BAAI_bge3/meta.jsonl" \
   --queries "$REPO_ROOT/data/test_queries.json" \
   --run-out "$RUN_OUT" \
   --model "$MODEL_NAME" \
   --device "$DEVICE" \
   --k "$K" \
   --max-length "$MAX_LEN" \
-  --chunk-k "$CHUNK_K" \
-  --pool-docno "$POOL_DOCNO" \
-  --pool-mode "$POOL_MODE" \
-  --show-progress true \
-  --progress-desc "Dense Retrieval"
+  # --chunk-k "$CHUNK_K" \
+  # --pool-docno "$POOL_DOCNO" \
+  # --pool-mode "$POOL_MODE" \
+  # --show-progress true \
+  # --progress-desc "Dense Retrieval"
 
 echo "✅ Dense Retrieval run completed. Results saved to $RUN_OUT"
 
@@ -71,7 +72,7 @@ echo "✅ Dense Retrieval run completed. Results saved to $RUN_OUT"
 
 echo "🚀 Evaluating run: $RUN..."
 
-RUN="run_dense_chunked_pooled_v4_BAAI_bge-large-en-v1.5.txt"
+RUN="run_dense_BAAI_bge3.txt"
 OUTPUT=$RUN
 
 QRELS_FILE=$REPO_ROOT/data/test_qrels.json
