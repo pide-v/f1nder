@@ -21,11 +21,11 @@ def build_bm25f_retriever(indexref: "pt.IndexRef", top_k: int = 100):
     index = pt.IndexFactory.of(indexref)
 
     # controlli BM25F: campo 0 = text, campo 1 = entities
-    controls = {  # provare a cambiare questi pesi
+    controls = {
         'w.0': 1.0,  # peso text
         'w.1': 1.5,  # peso entities
         'c.0': 0.6,  # normalizzazione text
-        'c.1': 0.6   # normalizzazione entities
+        'c.1': 0.3   # normalizzazione entities
     }
 
     return pt.terrier.Retriever(index, wmodel="BM25F", controls=controls, num_results=top_k)
@@ -43,7 +43,6 @@ def run_bm25f(
         pt.init()
 
     # Carica query e qrels
-    #queries_df = load_queries_json(queries_path, qid_field="query_id", query_field="question")
     queries_df = pd.read_json(queries_path)
     queries_df["query"] = queries_df["question"] + " " + queries_df["entities"]
     queries_df.rename(columns={"query_id": "qid", "question": "query"}, inplace=True)
