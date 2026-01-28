@@ -4,38 +4,42 @@
 
 from argparse import ArgumentParser
 import json
+import re
+import string
+import unicodedata
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-judging_prompt ="""
-You are a strict and impartial evaluator.
+system_prompt = """
+You are an evaluator.
 
-Determine whether the Generated Answer is fully equivalent to the Ground Truth Answer.
+Your task is to determine whether two answers to the same question convey the same meaning.
 
-User Question:
-"{question}"
+Answer YES if the answers are semantically equivalent, even if they use different wording.
+Answer NO if they differ in meaning, provide conflicting information, omit key details, or change the intent.
 
-Ground Truth Answer (authoritative):
-"{ground_truth}"
+Ignore differences in style, length, or wording.
+Base your decision only on factual content.
 
-Generated Answer:
-"{generated_answer}"
+Respond using only YES or NO. Do not provide explanations.
+""".strip()
 
-Steps:
-1. Extract the key factual statements from the Ground Truth.
-2. Check whether each statement is present and correctly expressed in the Generated Answer.
-3. Identify any additional claims in the Generated Answer not supported by the Ground Truth.
-4. Decide equivalence.
+user_prompt = """
+Pair 1:
+Question: {question}
+Answer: {ground_truth}
 
-Decision Rules:
-- Equivalent = YES only if:
-  a) No key information from the Ground Truth is missing, AND
-  b) No extra unsupported or incorrect information is added.
-- Otherwise, Equivalent = NO.
+Pair 2:
+Question: {question}
+Answer: {generated_answer}
+""".strip()
 
-Output Format (You MUST respect this output format):
-TRUE if the answers are equivalent
-FALSE otherwise
-"""
+
+def normalize_text(text):
+    text = text.lower()
+    text = unicodedata.normalize("NFKC", text)
+    text = text.translate(str.maketrans("", "", string.punctuation))
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 def evaluate(test_queries_answers_path, model_answers_path, output_path):
     #load ground truth and model answers
@@ -51,7 +55,7 @@ def evaluate(test_queries_answers_path, model_answers_path, output_path):
     tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-1b-it")
     model = AutoModelForCausalLM.from_pretrained("google/gemma-3-1b-it")
 
-    for elem in ground_truth_answers[:100]:
+    for elem in ground_truth_answers:
         ground_truth = elem['answer']
         id = elem['query_id']
 
@@ -62,15 +66,21 @@ def evaluate(test_queries_answers_path, model_answers_path, output_path):
         if(model_answer):
             answer = model_answer[0]['answer']
             org_question = model_answer[0]['question']
-            print(ground_truth, " ", answer)
 
-            prompt = judging_prompt.format(
-                question = org_question,
-                ground_truth = ground_truth,
-                generated_answer = answer
+            #It is crucial to normalize text
+            prompt = user_prompt.format(
+                question=normalize_text(org_question),
+                ground_truth=normalize_text(ground_truth),
+                generated_answer=normalize_text(answer)
             )
+
             print(prompt)
+
             messages = [
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
                 {
                     "role": "user",
                     "content": prompt
